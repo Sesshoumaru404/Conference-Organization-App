@@ -37,8 +37,13 @@ class SendConfirmationEmailHandler(webapp2.RequestHandler):
                 'conferenceInfo')
         )
 
+class GetFeaturedSpeaker(webapp2.RequestHandler):
+    def post(self):
+        """Find If Speaker have mutli session in conference"""
+        return ""
 
 app = webapp2.WSGIApplication([
     ('/crons/set_announcement', SetAnnouncementHandler),
     ('/tasks/send_confirmation_email', SendConfirmationEmailHandler),
+    # ('/tasks/get_Featured_Speaker', getFeaturedSpeaker)
 ], debug=True)
