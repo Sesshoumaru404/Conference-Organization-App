@@ -3,7 +3,7 @@ Develop a cloud-based API server to support a provided conference organization a
 API supports the following functionality found within the app: user authentication, user profiles, conference information and
 various manners in which to query the data.
 
-Site is [live](https://project-four.appspot.com/)
+Site is [live](https://project-four.appspot.com/), but added features are only on backend.
 
 ## Products
 - [App Engine][1]
