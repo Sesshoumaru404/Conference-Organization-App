@@ -153,7 +153,7 @@ class TypeOfSession(messages.Enum):
     PRESENTATIONS = 9
     
 class SessionForms(messages.Message):
-    """SessionForms -- multiple Conference outbound form message"""
+    """SessionForms -- multiple Session outbound form message"""
     sessions = messages.MessageField(SessionForm, 1, repeated=True)
 
 class SessionQueryForm(messages.Message):

@@ -63,7 +63,7 @@ DEFAULTS = {
     "city": "Default City",
     "maxAttendees": 0,
     "seatsAvailable": 0,
-    "topics": [ "Default", "Topic" ],
+    "topics": ["Default", "Topic"],
 }
 
 OPERATORS = {
@@ -75,7 +75,7 @@ OPERATORS = {
             'NE':   '!='
             }
 
-FIELDS =    {
+FIELDS =   {
             'CITY': 'city',
             'TOPIC': 'topics',
             'MONTH': 'month',
@@ -296,7 +296,7 @@ class ConferenceApi(remote.Service):
     def _getQuery(self, request):
         """Return formatted query from the submitted filters."""
         q = Conference.query()
-        
+
         inequality_filter, filters = self._formatFilters(request.filters)
 
         # If exists, sort on inequality filter first
@@ -641,7 +641,7 @@ class ConferenceApi(remote.Service):
 
     def _sessionAdd(self, request):
         """Create a Session """
-        prof = self._getProfileFromUser() # get user Profile
+        prof = self._getProfileFromUser()  # get user Profile
 
         # check if conf exists given websafeConfKey
         # get conference; check that it exists
@@ -656,32 +656,32 @@ class ConferenceApi(remote.Service):
             raise endpoints.NotFoundException(
                 'Cannont create a sessions from this conference')
         # Check for valid time
-        if  24 < request.startTime or 0 >= request.startTime:
+        if 24 < request.startTime or 0 >= request.startTime:
             raise endpoints.NotFoundException(
                 'Invalid time, Please use 24 hour format. e.g 17')
         data = {field.name: getattr(request, field.name) for field in request.all_fields()}
         del data['websafeConferenceKey']
-        
+
         if not data['typeOfSession']:
             data['typeOfSession'] = "NOT_SPECIFIED"
         else:
             data['typeOfSession'] = data['typeOfSession'].name
-            
         s_id = Session.allocate_ids(size=1, parent=conf_k)[0]
         s_key = ndb.Key(Session, s_id, parent=conf_k)
         data['key'] = s_key
         session = Session(**data)
         s = session.put()
         # Added a task to check for feature speaker
-        taskqueue.add(url='/tasks/get_Featured_Speaker', params={'key': wsck, 'speaker': data['speaker'] })
+        taskqueue.add(url='/tasks/get_Featured_Speaker',\
+                      params={'key': wsck, 'speaker': data['speaker']})
         return self._copySessionToForm(s.get())
 
     @ndb.transactional(retries=2)
-    def _wishlistAdd (self, request):
-        prof = self._getProfileFromUser() # get user Profile
+    def _wishlistAdd(self, request):
+        prof = self._getProfileFromUser()  # get user Profile
         s_key = request.websafeSessionsKey
         session = ndb.Key(urlsafe=s_key).get()
-        if s_key in prof.wishlist:            
+        if s_key in prof.wishlist:
             raise endpoints.NotFoundException(
                 'Sessions is already on your wishlist')
         prof.wishlist.append(s_key)
@@ -689,50 +689,48 @@ class ConferenceApi(remote.Service):
         prof.put()
         session.put()
         return self._copyProfileToForm(prof)
-        
-        
 
     def _querySessions(self, filters, key=None):
         if key:
-            # get Conference object from request; bail if not found      
+            # get Conference object from request; bail if not found
             safeKey = ndb.Key(urlsafe=key)
             conf = safeKey.get()
             if not conf:
                 raise endpoints.NotFoundException(
                     'No conference found with key: %s' % key)
-            q = Session.query(ancestor=safeKey) 
-        else:            
+            q = Session.query(ancestor=safeKey)
+        else:
             q = Session.query()
-            
-        if filters:    
+
+        if filters:
             inequality_filter, filters, excluded_values = self._formatMutliInequality(filters)
             # If exists, sort on inequality filter first
             if inequality_filter:
                 q = q.order(ndb.GenericProperty(inequality_filter))
-                        
+
             q = q.order(Session.startTime)
             q = q.order(Session.name)
-                    
+
             for filtr in filters:
                 formatted_query = ndb.query.FilterNode(filtr["field"], filtr["operator"], filtr["value"])
                 q = q.filter(formatted_query)
-                
+
             if excluded_values:
                 """
-                This code is used to solve query extra credit problem. 
+                This code is used to solve query extra credit problem.
                 Create list of session types but exclude the not equal to type
                 """
-                typeOfSession = [typeOfSession for typeOfSession in TypeOfSession.to_dict()\
-                    if typeOfSession not in excluded_values]
+                typeOfSession = [typeOfSession for typeOfSession in \
+                                 TypeOfSession.to_dict() if typeOfSession\
+                                 not in excluded_values]
                 FilterList = []
                 for i in typeOfSession:
                     FilterList.append(ndb.query.FilterNode('typeOfSession', '=', i))
-                    
+
                 q = q.filter(ndb.OR(*FilterList))
-                
+
         return q
- 
- 
+
     def _formatMutliInequality(self, filters):
         """Parse, check validity and format user supplied filters."""
         formatted_filters = []
@@ -740,43 +738,46 @@ class ConferenceApi(remote.Service):
         inequality_field = None
         for f in filters:
             filtr = {field.name: getattr(f, field.name) for field in f.all_fields()}
-            
-            if  filtr["field"] == "START_TIME":
+
+            if filtr["field"] == "START_TIME":
                 filtr["value"] = int(filtr["value"])
             try:
                 filtr["field"] = FIELDS[filtr["field"]]
                 filtr["operator"] = OPERATORS[filtr["operator"]]
             except KeyError:
-                raise endpoints.BadRequestException("Filter contains invalid field or operator.")
-            
-            
+                raise endpoints.BadRequestException("Filter contains invalid\
+                field or operator.")
+
             # Every operation except "=" is an inequality
             if filtr["operator"] != "=":
                 """
-                Remove session type inequality part of my solution for solving the
-                query problem asked for extra credit, also only allow not equal inequality
-                for operator because checking for types less then
-                'WORKSHOP' makes no sense. 
+                Remove session type inequality part of my solution for solving
+                the query problem asked for extra credit, also only allow not
+                equal inequality for operator because checking for types less
+                then 'WORKSHOP' makes no sense.
                 """
                 if filtr["field"] == "typeOfSession":
-                    if  filtr["operator"] != "!=":
+                    if filtr["operator"] != "!=":
                         raise endpoints.BadRequestException("Can only one \
                             exclude values ")
                     excluded_values.append(filtr["value"].upper())
                     continue
                 if inequality_field and inequality_field != filtr["field"]:
-                    raise endpoints.BadRequestException("Inequality filter is allowed on only one field.")
+                    raise endpoints.BadRequestException("Inequality filter is\
+                    allowed on only one field.")
                 else:
                     inequality_field = filtr["field"]
 
             formatted_filters.append(filtr)
-        return (inequality_field, formatted_filters, excluded_values)    
-  
+        return (inequality_field, formatted_filters, excluded_values)
+
     @endpoints.method(CONF_GET_REQUEST, SessionForms,
             path='conference/{websafeConferenceKey}/sessions',
             http_method='GET', name='getConferenceSessions')
     def getConferenceSessions(self, request):
-        """Return requested sessions for a conference (by websafeConferenceKey)."""
+        """
+        Return requested sessions for a conference (by websafeConferenceKey).
+        """
         # get Conference object from request; bail if not found
         conf = ndb.Key(urlsafe=request.websafeConferenceKey).get()
         if not conf:
@@ -787,56 +788,54 @@ class ConferenceApi(remote.Service):
 
         # return ConferenceForm
         return SessionForms(sessions=[self._copySessionToForm(sess)\
-            for sess in sessions]
-        )
+                            for sess in sessions])
 
     @endpoints.method(message_types.VoidMessage, SessionForms,
         path='getMostWishlisted',
         http_method='GET', name='getMostWishlisted')
-    def getMostWishlisted (self, request):
+    def getMostWishlisted(self, request):
         """
         One of the additional queries.
-        See which sessions Users are most excited about, by getting 
-        the top 10 most wishlisted sessions.        
-        """        
+        See which sessions Users are most excited about, by getting
+        the top 10 most wishlisted sessions.
+        """
         sessions = Session.query(Session.wishlisted > 0 ).order(-Session.wishlisted).fetch(10)
         return SessionForms(sessions=[self._copySessionToForm(sess)\
-            for sess in sessions]
-        )
+                            for sess in sessions])
 
     @endpoints.method(SINGLE_POST_REQUEST, SessionForms,
         path='conference/{websafeConferenceKey}/getSessionsPerDay',
         http_method='POST', name='getSessionsPerDay')
-    def getSessionsPerDay (self, request):
+    def getSessionsPerDay(self, request):
         """
         Second of the additional queries.
-        Get all conference sessions during a day        
+        Get all conference sessions during a day
         """
         key = ndb.Key(urlsafe=request.websafeConferenceKey)
         conf = key.get()
         if not conf:
             raise endpoints.NotFoundException(
                 'No conference found with key: %s' % key)
-        # Check is values are valid 
-        if request.field != "DAY" or request.operator not in OPERATORS  :
-            raise endpoints.NotFoundException('Can only filter by day or check operator')
-        # Make sure value is number 
+        # Check is values are valid
+        if request.field != "DAY" or request.operator not in OPERATORS:
+            raise endpoints.NotFoundException('Can only filter by day or\
+             check operator')
+        # Make sure value is number
         try:
             int(request.value)
         except:
             raise endpoints.NotFoundException('Please use a number')
         sessions = Session.query(ancestor=key).\
-        filter(ndb.query.FilterNode(FIELDS[request.field], OPERATORS[request.operator],\
-             int(request.value))).\
-        order(Session.startTime)
+            filter(ndb.query.FilterNode(FIELDS[request.field],\
+            OPERATORS[request.operator], int(request.value))).\
+            order(Session.startTime)
         return SessionForms(sessions=[self._copySessionToForm(sess)\
-            for sess in sessions]
-        )
+                            for sess in sessions])
 
     @endpoints.method(SINGLE_POST_REQUEST, SessionForms,
         path='conference/{websafeConferenceKey}/sessionsByType',
         http_method='POST', name='getConferenceSessionsByType')
-    def getConferenceSessionsByType (self, request):
+    def getConferenceSessionsByType(self, request):
         """
         Given a conference, return all sessions of a specified type
         (eg lecture, keynote, workshop)
@@ -847,44 +846,41 @@ class ConferenceApi(remote.Service):
         if not conf:
             raise endpoints.NotFoundException(
                 'No conference found with key: %s' % key)
-        # Check if field and operation are valid 
-        if request.field != "TYPE" or request.operator not in OPERATORS  :
+        # Check if field and operation are valid
+        if request.field != "TYPE" or request.operator not in OPERATORS:
             raise endpoints.NotFoundException('Can only filter by type or check operator')
-        # Check if value is valid 
+        # Check if value is valid
         if value not in TypeOfSession.to_dict():
             raise endpoints.NotFoundException('Not a valid session type')
         sessions = Session.query(ancestor=key).\
-        filter(ndb.query.FilterNode(FIELDS[request.field], OPERATORS[request.operator],\
-             value)).\
-        order(Session.startTime)
+            filter(ndb.query.FilterNode(FIELDS[request.field],\
+            OPERATORS[request.operator], value)).\
+            order(Session.startTime)
         return SessionForms(sessions=[self._copySessionToForm(sess)\
-            for sess in sessions]
-        )
+                            for sess in sessions])
 
     @endpoints.method(SessionQueryForms, SessionForms,
         path='speakers',
         http_method='POST', name='getSessionsBySpeakers')
-    def getSessionsBySpeakers (self, request):
+    def getSessionsBySpeakers(self, request):
         """
         Given a speaker, return all sessions given by this particular
         speaker, acroos all conferences.
         """
         sessions = self._querySessions(request.filters)
         return SessionForms(sessions=[self._copySessionToForm(sess)\
-            for sess in sessions]
-        )
+                            for sess in sessions])
 
     @endpoints.method(QUERY_POST_REQUEST, SessionForms,
         path='conference/{websafeConferenceKey}/sessions',
         http_method='POST', name='getQuerySessions')
-    def getQuerySessions (self, request):
+    def getQuerySessions(self, request):
         """
         Query all sessions in a conference, use for credit extra problem.
         """
         sessions = self._querySessions(request.filters, request.websafeConferenceKey)
         return SessionForms(sessions=[self._copySessionToForm(sess)\
-            for sess in sessions]
-        )
+                            for sess in sessions])
 
     @endpoints.method(SESS_POST_REQUEST, SessionForm,
             path='conference/{websafeConferenceKey}/session',
@@ -893,38 +889,34 @@ class ConferenceApi(remote.Service):
         """Creat a session for a conference."""
         return self._sessionAdd(request)
 
-
     @endpoints.method(WISHLIST_POST_REQUEST, ProfileForm,
             path='session/{websafeSessionsKey}/addSessionToWishlist',
             http_method='POST', name='addSessionToWishlist')
     def addSessionToWishlist(self, request):
         """
-        Adds the sessions to the user's list of 
+        Adds the sessions to the user's list of
         sessions the are interested in attending.
         """
         return self._wishlistAdd(request)
-    
-    
+
     @endpoints.method(message_types.VoidMessage, SessionForms,
             path='profile/wishlist', http_method='GET',
             name='getSessionsInWishlist')
     def getSessionsInWishlist(self, request):
-        """
-        Get all sessions on user wishlist .
-        """
+        """Get all sessions on user wishlist."""
         return self._getWishlist()
-        
+
     @endpoints.method(CONF_GET_REQUEST, SessionForms,
             path='conference/{websafeConferenceKey}/getFeatureSpeaker',
             http_method='GET', name='getFeatureSpeaker')
     def getFeatureSpeaker(self, request):
-        """Return all sessions that have the featured speaker for a conference."""
-        key = ndb.Key(urlsafe = request.websafeConferenceKey)
-        featureSpeaker = Session.countspeakers(key)[0][0] # get name is featured speaker
+        """
+        Return all sessions that have the featured speaker for a conference.
+        """
+        key = ndb.Key(urlsafe=request.websafeConferenceKey)
+        featureSpeaker = Session.countspeakers(key)[0][0]  # get name is featured speaker
         q = Session.query(ancestor=key).filter(Session.speaker == featureSpeaker)
         return SessionForms(sessions=[self._copySessionToForm(sess)\
-            for sess in q]
-        )
- 
-    
-api = endpoints.api_server([ConferenceApi]) # register API
+                            for sess in q])
+
+api = endpoints.api_server([ConferenceApi])  # register API
