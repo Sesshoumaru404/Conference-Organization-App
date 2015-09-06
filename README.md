@@ -41,8 +41,8 @@ dayofConf       = ndb.IntegerProperty(default=1)
 startTime       = ndb.IntegerProperty()
 wishlisted      = ndb.IntegerProperty(default=0) 
 ```
-Choose to make the type of sessions(typeOfSession) an Emun you help solve the extra credit problem,
-see the Query solution exampled for more information. Added a day of conference(dayofConf), to easily
+Choose to make the type of sessions (typeOfSession) an Emun you help solve the extra credit problem,
+see the Query solution exampled for more information. Added a day of conference (dayofConf), to easily
 search and see that is happening during certain day of a conference. Wish-list counter(wishlisted) was
 added to track how popular a session is, sense users can only wishlist a session once this a good way
 to see how my different users want to attend a session. 
@@ -70,8 +70,10 @@ types the list can be easily extended.
    
 ## Additional Queries
 Query One getMostWishlisted():
+
 This shows the top 10 sessions with the wish-list adds. This useful because user can what is sessions are trending 
 Query Two getSessionsPerDay(websafeConferenceKey):
+
 Show a all sessions based on day of a conference. This is helpful if use only the day they want to attend or if a day
 as pass users and only the remaining days. 
 
