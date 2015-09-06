@@ -102,35 +102,20 @@ indexes:
 
 - kind: Session
   properties:
-  - name: belongsToConf
+  - name: speaker
   - name: name
 
 - kind: Session
   properties:
-  - name: belongsToConf
   - name: speaker
-
-- kind: Session
-  properties:
-  - name: belongsToConf
   - name: startTime
   - name: name
 
 - kind: Session
   properties:
-  - name: belongsToConf
-  - name: typeOfSession
-
-- kind: Session
-  properties:
-  - name: belongsToConf
-  - name: typeOfSession
+  - name: startTime
   - name: name
-
-- kind: Session
-  properties:
   - name: speaker
-  - name: name
 
 - kind: Session
   properties:
@@ -141,5 +126,100 @@ indexes:
 
 - kind: Session
   properties:
+  - name: wishlisted
+
+- kind: Session
+  ancestor: yes
+  properties:
+  - name: DAY
+  - name: startTime
+    direction: desc
+
+- kind: Session
+  ancestor: yes
+  properties:
+  - name: day
+  - name: startTime
+    direction: desc
+
+- kind: Session
+  ancestor: yes
+  properties:
+  - name: dayofConf
+  - name: startTime
+
+- kind: Session
+  ancestor: yes
+  properties:
+  - name: dayofConf
+  - name: startTime
+    direction: desc
+
+- kind: Session
+  ancestor: yes
+  properties:
+  - name: name
+
+- kind: Session
+  ancestor: yes
+  properties:
+  - name: speaker
+
+- kind: Session
+  ancestor: yes
+  properties:
+  - name: speaker
+  - name: name
+
+- kind: Session
+  ancestor: yes
+  properties:
+  - name: speaker
+  - name: startTime
+  - name: name
+
+- kind: Session
+  ancestor: yes
+  properties:
+  - name: speaker
   - name: typeOfSession
+  - name: name
+
+- kind: Session
+  ancestor: yes
+  properties:
+  - name: startTime
+  - name: name
+
+- kind: Session
+  ancestor: yes
+  properties:
+  - name: startTime
+  - name: typeOfSession
+  - name: name
+
+- kind: Session
+  ancestor: yes
+  properties:
+  - name: typeOfSession
+  - name: name
+
+- kind: Session
+  ancestor: yes
+  properties:
+  - name: typeOfSession
+  - name: speaker
+  - name: name
+
+- kind: Session
+  ancestor: yes
+  properties:
+  - name: typeOfSession
+  - name: startTime
+
+- kind: Session
+  ancestor: yes
+  properties:
+  - name: typeOfSession
+  - name: startTime
   - name: name

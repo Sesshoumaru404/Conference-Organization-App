@@ -16,6 +16,7 @@ import httplib
 import endpoints
 from protorpc import messages
 from google.appengine.ext import ndb
+from collections import Counter
 
 class ConflictException(endpoints.ServiceException):
     """ConflictException -- exception mapped to HTTP 409 response"""
@@ -113,13 +114,21 @@ class ConferenceQueryForms(messages.Message):
 class Session(ndb.Model):
     """Session -- Session object"""
     name            = ndb.StringProperty(required=True)
-    belongsToConf   = ndb.StringProperty()
     highlights      = ndb.StringProperty()
     speaker         = ndb.StringProperty()
     duration        = ndb.IntegerProperty()
-    typeOfSession   = ndb.StringProperty(repeated=True,)
-    day             = ndb.IntegerProperty()
+    typeOfSession   = ndb.StringProperty(default='NOT_SPECIFIED')
+    dayofConf       = ndb.IntegerProperty(default=1)
     startTime       = ndb.IntegerProperty()
+    wishlisted      = ndb.IntegerProperty(default=0) 
+
+    @classmethod
+    def countspeakers(self, key):
+        """Return the speaker in the most sessions"""
+        speakers = [session.speaker for session in self.query(ancestor=key, projection=[Session.speaker])]
+        speakerCount =  Counter(speakers)
+        return speakerCount.most_common(1)
+        
 
 class SessionForm(messages.Message):
     """SessionForm -- Session outbound form message"""
@@ -127,10 +136,22 @@ class SessionForm(messages.Message):
     highlights      = messages.StringField(2)
     speaker         = messages.StringField(3)
     duration        = messages.IntegerField(4)
-    typeOfSession   = messages.StringField(5, repeated=True)
+    typeOfSession   = messages.EnumField('TypeOfSession', 5)
     startTime       = messages.IntegerField(6)
-    belongsToConf   = messages.StringField(7)
+    dayofConf       = messages.IntegerField(7)
 
+class TypeOfSession(messages.Enum):
+    """TypeOfSession -- Session types enumeration value"""
+    NOT_SPECIFIED = 1
+    LECTURE = 2
+    KEYNOTE = 3
+    WORKSHOP = 4
+    PARTY = 5
+    SEMINARS = 6
+    MEETUPS = 7
+    EXHIBITION = 8
+    PRESENTATIONS = 9
+    
 class SessionForms(messages.Message):
     """SessionForms -- multiple Conference outbound form message"""
     sessions = messages.MessageField(SessionForm, 1, repeated=True)
