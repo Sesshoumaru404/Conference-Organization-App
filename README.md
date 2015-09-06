@@ -54,7 +54,7 @@ of everybody. You could restrict edits to conference that include that speaker b
 the same as having it all in under session entity. 
 
 ## Query solution exampled:
-Query was:
+Query asked:
 ```
 q = Session.all()
 q.filter("typeOfSession !=", "WORKSHOPS")
