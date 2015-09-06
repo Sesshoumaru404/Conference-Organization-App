@@ -69,11 +69,9 @@ be exploded quickly. To limit this a issue I limited the accepted session types.
 types the list can be easily extended.   
    
 ## Additional Queries
-Query One getMostWishlisted():
-
+####Query One getMostWishlisted():
 This shows the top 10 sessions with the wish-list adds. This useful because user can what is sessions are trending 
-Query Two getSessionsPerDay(websafeConferenceKey):
-
+####Query Two getSessionsPerDay(websafeConferenceKey):
 Show a all sessions based on day of a conference. This is helpful if use only the day they want to attend or if a day
 as pass users and only the remaining days. 
 
