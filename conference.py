@@ -56,7 +56,7 @@ MEMCACHE_ANNOUNCEMENTS_KEY = "RECENT_ANNOUNCEMENTS"
 SPEAKER_ANNOUNCEMENTS_KEY = "FEATURED_SPEAKER_ FOR_"
 ANNOUNCEMENT_TPL = ('Last chance to attend! The following conferences '
                     'are nearly sold out: %s')
-ANNOUNCEMENT_SPK = ('Hear %s speak at %s conference.')
+ANNOUNCEMENT_SPK = ('Hear %s speak at %s. Featured during these sessions: %s.')
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 DEFAULTS = {
@@ -432,13 +432,13 @@ class ConferenceApi(remote.Service):
         # get user Profile
         prof = self._getProfileFromUser()
 
-        s_keys = [ndb.Key(urlsafe=wsck) for wsck in prof.wishlist]
+        s_keys = [ndb.Key(urlsafe=wssk) for wssk in prof.wishlist]
         sessions = ndb.get_multi(s_keys)
         
         if not sessions:
              return SessionForm()
         else:
-            # return set of ConferenceForm objects per Conference
+            # return SessionForms from user wishlist
             return SessionForms(
                 sessions=[self._copySessionToForm(session) for session in sessions]
             )
@@ -485,24 +485,38 @@ class ConferenceApi(remote.Service):
 
     @staticmethod
     def _cacheFeaturedSpeaker(self):
-        """Create Announcement & assign to memcache; used by
+        """
+        Create memcache for featured Speaker.used by
         memcache cron job & putAnnouncement().
         """
-        key = self.request.get('key')
-        conf_k = ndb.Key(urlsafe=key)
+        # Get the conference that the speaker is speaking
+        # at from the websafeKey provided in the request
+        conf_k = ndb.Key(urlsafe=self.request.get('key'))
         conf = conf_k.get()
+        # The speaker that was just added
         addedSpeaker = self.request.get('speaker')
-        highestSpeaker = Session.countspeakers(conf_k)
-        confMemKey = SPEAKER_ANNOUNCEMENTS_KEY + conf.name.upper()
-        if highestSpeaker[0][1] > 1 and highestSpeaker[0][0] == addedSpeaker:
-            # Check that feature speaker is the most recently added speaker
-            announcement = ANNOUNCEMENT_SPK % (addedSpeaker.title(), conf.name.title(),)
-            memcache.add(key=confMemKey, value=announcement, time=60)
+        # Find the speaker in the most sessions giving a Confenence
+        # and return (name, sessionsCount)
+        featuredSpeaker = Session.countspeakers(conf_k)
+        speakerName =  featuredSpeaker[0]
+        sessionsSpeakersIn =  featuredSpeaker[1]
+        speakerMemKet = SPEAKER_ANNOUNCEMENTS_KEY + conf.name.upper()
+        # Query that gets the name of the sessions the features speaker
+        sessionsNames = [session.name for session in \
+            Session.query(ancestor=conf_k, projection=[Session.name]).\
+            filter(Session.speaker == speakerName)]
+        # Turn array into string then remove []
+        stringNames = ''
+        for name in sessionsNames:
+            stringNames += name + ", "
+        print ANNOUNCEMENT_SPK % (speakerName.title(), conf.name.title(),stringNames)
+        if sessionsSpeakersIn > 1 and speakerName == addedSpeaker:
+            announcement = ANNOUNCEMENT_SPK % (speakerName.title(), conf.name.title(),sessionsNames)
+            memcache.add(key=speakerMemKet, value=announcement, time=60)
         else:
             # If no feature speaker
             announcement = ""
-            memcache.delete(confMemKey)
-
+            memcache.delete(speakerMemKet)
         return announcement
 
     @endpoints.method(message_types.VoidMessage, StringMessage,
@@ -672,7 +686,7 @@ class ConferenceApi(remote.Service):
         session = Session(**data)
         s = session.put()
         # Added a task to check for feature speaker
-        taskqueue.add(url='/tasks/get_Featured_Speaker',\
+        taskqueue.add(url='/tasks/set_Featured_Speaker',\
                       params={'key': wsck, 'speaker': data['speaker']})
         return self._copySessionToForm(s.get())
 

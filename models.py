@@ -123,11 +123,15 @@ class Session(ndb.Model):
     wishlisted      = ndb.IntegerProperty(default=0) 
 
     @classmethod
-    def countspeakers(self, key):
-        """Return the speaker in the most sessions"""
-        speakers = [session.speaker for session in self.query(ancestor=key, projection=[Session.speaker])]
+    def countspeakers(self, conf_key):
+        """
+        Return the speaker and the number of sessions speaker is in
+        given a confence.
+        """
+        speakers = [session.speaker for session in self.query(ancestor=conf_key, projection=[Session.speaker])]
+        # Returns array [('speakers name', 'number of session speaker is in' )]
         speakerCount =  Counter(speakers)
-        return speakerCount.most_common(1)
+        return speakerCount.most_common(1)[0]
         
 
 class SessionForm(messages.Message):
