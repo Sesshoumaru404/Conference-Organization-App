@@ -1,4 +1,4 @@
 cron:
-- description: Repopulate the announcement every 1 hour
+- description: Repopulate the announcement every 24 hour
   url: /crons/set_announcement
-  schedule: every 10 mins
+  schedule: every 24 hours

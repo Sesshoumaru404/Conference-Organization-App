@@ -120,18 +120,26 @@ class Session(ndb.Model):
     typeOfSession   = ndb.StringProperty(default='NOT_SPECIFIED')
     dayofConf       = ndb.IntegerProperty(default=1)
     startTime       = ndb.IntegerProperty()
-    wishlisted      = ndb.IntegerProperty(default=0) 
+    wishlisted      = ndb.IntegerProperty(default=0)
 
     @classmethod
-    def countspeakers(self, key):
-        """Return the speaker in the most sessions"""
-        speakers = [session.speaker for session in self.query(ancestor=key, projection=[Session.speaker])]
+    def countspeakers(self, conf_key):
+        """
+        Return the speaker and the number of sessions speaker is in
+        given a confence.
+        """
+        speakers = [session.speaker for session in self.query(ancestor=\
+                    conf_key, projection=[Session.speaker])]
+        # Returns array [('speakers name', 'number of session speaker is in' )]
         speakerCount =  Counter(speakers)
-        return speakerCount.most_common(1)
-        
+        return speakerCount.most_common(1)[0]
+
 
 class SessionForm(messages.Message):
-    """SessionForm -- Session outbound form message"""
+    """
+    SessionForm -- Session outbound form message
+    Excluded a websafeSessionKey
+    """
     name            = messages.StringField(1)
     highlights      = messages.StringField(2)
     speaker         = messages.StringField(3)
@@ -151,7 +159,7 @@ class TypeOfSession(messages.Enum):
     MEETUPS = 7
     EXHIBITION = 8
     PRESENTATIONS = 9
-    
+
 class SessionForms(messages.Message):
     """SessionForms -- multiple Session outbound form message"""
     sessions = messages.MessageField(SessionForm, 1, repeated=True)
@@ -162,6 +170,16 @@ class SessionQueryForm(messages.Message):
     operator = messages.StringField(2)
     value = messages.StringField(3)
 
+class SpeakerSessionQueryForm(messages.Message):
+    """SpeakerSessionQueryForm -- Session query inbound form message"""
+    speaker = messages.StringField(1)
+
 class SessionQueryForms(messages.Message):
     """SessionQueryForms -- multiple SessionQueryForm inbound form message"""
     filters = messages.MessageField(SessionQueryForm, 1, repeated=True)
+
+class FeatureSpeaker(messages.Message):
+    """FeatureSpeaker -- FeatureSpeaker outbound form message """
+    name = messages.StringField(1)
+    conf_name = messages.StringField(2)
+    sessions = messages.StringField(3, repeated=True)

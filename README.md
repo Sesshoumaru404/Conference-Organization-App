@@ -41,8 +41,8 @@ dayofConf       = ndb.IntegerProperty(default=1)
 startTime       = ndb.IntegerProperty()
 wishlisted      = ndb.IntegerProperty(default=0) 
 ```
-Choose to make the type of sessions(typeOfSession) an Emun you help solve the extra credit problem,
-see the Query solution exampled for more information. Added a day of conference(dayofConf), to easily
+Choose to make the type of sessions (typeOfSession) an Emun you help solve the extra credit problem,
+see the Query solution exampled for more information. Added a day of conference (dayofConf), to easily
 search and see that is happening during certain day of a conference. Wish-list counter(wishlisted) was
 added to track how popular a session is, sense users can only wishlist a session once this a good way
 to see how my different users want to attend a session. 
@@ -54,26 +54,25 @@ of everybody. You could restrict edits to conference that include that speaker b
 the same as having it all in under session entity. 
 
 ## Query solution exampled:
-Query was:
+Query asked:
 ```
 q = Session.all()
 q.filter("typeOfSession !=", "WORKSHOPS")
 q.filter("height >", 19)
 ```
-Datastore only allows you to use inequality filter on one property. So my workaround for this issue was
+Datastore only allows you to use an inequality filter on one property. So my workaround for this issue was
 to get a list of all session types, then exact "WORKSHOPS" from the list. With that list I used an OR filter
 on each item.
 `q.filter(ndb.OR(ndb.query.FilterNode('typeOfSession', '=', listItem))`
 The problem with this approach is that depending on how many different sessions type there, your query could
-be exploded quickly. To limit this a issue I limited the accepted session types. If users feel they need more
+exploded quickly. To limit this a issue I restricted the accepted session types. If users feel they need more
 types the list can be easily extended.   
    
 ## Additional Queries
-Query One getMostWishlisted():
-This shows the top 10 sessions with the wish-list adds. This useful because user can what is sessions are trending 
-Query Two getSessionsPerDay(websafeConferenceKey):
-Show a all sessions based on day of a conference. This is helpful if use only the day they want to attend or if a day
-as pass users and only the remaining days. 
+####Query One getMostWishlisted():
+This shows the top 10 wish-listed sessions. This useful because user can what is sessions are trending 
+####Query Two getSessionsPerDay(websafeConferenceKey):
+Shows all sessions based on the day of a conference. This is helpful if use only want to day you are attending or if a day has passed users can only the remaining days. 
 
 [1]: https://developers.google.com/appengine
 [2]: http://python.org
