@@ -42,6 +42,8 @@ from models import SessionForms
 from models import SessionQueryForm
 from models import SessionQueryForms
 from models import TypeOfSession
+from models import FeatureSpeaker
+from models import SpeakerSessionQueryForm
 
 from settings import WEB_CLIENT_ID
 from settings import ANDROID_CLIENT_ID
@@ -409,7 +411,6 @@ class ConferenceApi(remote.Service):
 
     def _doProfile(self, save_request=None):
         """Get user Profile and return to user, possibly updating it first."""
-        # get user Profile
         prof = self._getProfileFromUser()
 
         # if saveProfile(), process user-modifyable fields
@@ -429,12 +430,13 @@ class ConferenceApi(remote.Service):
         return self._copyProfileToForm(prof)
 
     def _getWishlist(self):
+        """Get all wishlisted sessions for a user."""
         # get user Profile
         prof = self._getProfileFromUser()
 
         s_keys = [ndb.Key(urlsafe=wssk) for wssk in prof.wishlist]
         sessions = ndb.get_multi(s_keys)
-        
+
         if not sessions:
              return SessionForm()
         else:
@@ -486,8 +488,7 @@ class ConferenceApi(remote.Service):
     @staticmethod
     def _cacheFeaturedSpeaker(self):
         """
-        Create memcache for featured Speaker.used by
-        memcache cron job & putAnnouncement().
+        Create memcache for a featured Speaker of a conference.
         """
         # Get the conference that the speaker is speaking
         # at from the websafeKey provided in the request
@@ -498,26 +499,26 @@ class ConferenceApi(remote.Service):
         # Find the speaker in the most sessions giving a Confenence
         # and return (name, sessionsCount)
         featuredSpeaker = Session.countspeakers(conf_k)
-        speakerName =  featuredSpeaker[0]
-        sessionsSpeakersIn =  featuredSpeaker[1]
-        speakerMemKet = SPEAKER_ANNOUNCEMENTS_KEY + conf.name.upper()
+        speakerName = featuredSpeaker[0]
+        sessionsSpeakersIn = featuredSpeaker[1]
+        speakerMemKey = SPEAKER_ANNOUNCEMENTS_KEY + self.request.get('key')
         # Query that gets the name of the sessions the features speaker
-        sessionsNames = [session.name for session in \
+        sessionsInfo = [session.name for session in \
             Session.query(ancestor=conf_k, projection=[Session.name]).\
             filter(Session.speaker == speakerName)]
         # Turn array into string then remove []
-        stringNames = ''
-        for name in sessionsNames:
-            stringNames += name + ", "
-        print ANNOUNCEMENT_SPK % (speakerName.title(), conf.name.title(),stringNames)
         if sessionsSpeakersIn > 1 and speakerName == addedSpeaker:
-            announcement = ANNOUNCEMENT_SPK % (speakerName.title(), conf.name.title(),sessionsNames)
-            memcache.add(key=speakerMemKet, value=announcement, time=60)
+            speaker = {
+                "name": speakerName.title(),
+                "conf_name": conf.name.title(),
+                "sessions": sessionsInfo
+            }
+            memcache.add(key=speakerMemKey, value=speaker, time=600)
         else:
             # If no feature speaker
-            announcement = ""
-            memcache.delete(speakerMemKet)
-        return announcement
+            speaker = ""
+            memcache.delete(speakerMemKey)
+        return speaker
 
     @endpoints.method(message_types.VoidMessage, StringMessage,
             path='conference/announcement/get',
@@ -680,7 +681,9 @@ class ConferenceApi(remote.Service):
             data['typeOfSession'] = "NOT_SPECIFIED"
         else:
             data['typeOfSession'] = data['typeOfSession'].name
+        # Allocates a range of key IDs for this model class.
         s_id = Session.allocate_ids(size=1, parent=conf_k)[0]
+        # Create a Session key the includes session and parent info
         s_key = ndb.Key(Session, s_id, parent=conf_k)
         data['key'] = s_key
         session = Session(**data)
@@ -692,6 +695,10 @@ class ConferenceApi(remote.Service):
 
     @ndb.transactional(retries=2)
     def _wishlistAdd(self, request):
+        """
+        Let users wishlist session, and increase wishlist count each
+        time a sessions is wishlisted
+        """
         prof = self._getProfileFromUser()  # get user Profile
         s_key = request.websafeSessionsKey
         session = ndb.Key(urlsafe=s_key).get()
@@ -705,6 +712,9 @@ class ConferenceApi(remote.Service):
         return self._copyProfileToForm(prof)
 
     def _querySessions(self, filters, key=None):
+        """
+        Gernal query used for searching Sessions.
+        """
         if key:
             # get Conference object from request; bail if not found
             safeKey = ndb.Key(urlsafe=key)
@@ -734,10 +744,13 @@ class ConferenceApi(remote.Service):
                 This code is used to solve query extra credit problem.
                 Create list of session types but exclude the not equal to type
                 """
+                # Create list by turning TypeOfSession EMUN into dict then
+                # filtered out values that are in the excluded_values list.
                 typeOfSession = [typeOfSession for typeOfSession in \
                                  TypeOfSession.to_dict() if typeOfSession\
                                  not in excluded_values]
                 FilterList = []
+                # Add additional filter to query
                 for i in typeOfSession:
                     FilterList.append(ndb.query.FilterNode('typeOfSession', '=', i))
 
@@ -752,9 +765,10 @@ class ConferenceApi(remote.Service):
         inequality_field = None
         for f in filters:
             filtr = {field.name: getattr(f, field.name) for field in f.all_fields()}
-
+            # Converting START_TIME to int
             if filtr["field"] == "START_TIME":
                 filtr["value"] = int(filtr["value"])
+            # Checking to see if all field are valid.
             try:
                 filtr["field"] = FIELDS[filtr["field"]]
                 filtr["operator"] = OPERATORS[filtr["operator"]]
@@ -771,9 +785,11 @@ class ConferenceApi(remote.Service):
                 then 'WORKSHOP' makes no sense.
                 """
                 if filtr["field"] == "typeOfSession":
+                    # Only add the not equal operator.
                     if filtr["operator"] != "!=":
                         raise endpoints.BadRequestException("Can only one \
                             exclude values ")
+                    # Add all good values to list.
                     excluded_values.append(filtr["value"].upper())
                     continue
                 if inequality_field and inequality_field != filtr["field"]:
@@ -793,12 +809,13 @@ class ConferenceApi(remote.Service):
         Return requested sessions for a conference (by websafeConferenceKey).
         """
         # get Conference object from request; bail if not found
-        conf = ndb.Key(urlsafe=request.websafeConferenceKey).get()
+        conf_k = ndb.Key(urlsafe=request.websafeConferenceKey)
+        conf = conf_k.get()
         if not conf:
             raise endpoints.NotFoundException(
                 'No conference found with key: %s' % request.websafeConferenceKey)
 
-        sessions = self._querySessions(None, request.websafeConferenceKey)
+        sessions = Session.query(ancestor=conf_k)
 
         # return ConferenceForm
         return SessionForms(sessions=[self._copySessionToForm(sess)\
@@ -873,7 +890,7 @@ class ConferenceApi(remote.Service):
         return SessionForms(sessions=[self._copySessionToForm(sess)\
                             for sess in sessions])
 
-    @endpoints.method(SessionQueryForms, SessionForms,
+    @endpoints.method(SpeakerSessionQueryForm, SessionForms,
         path='speakers',
         http_method='POST', name='getSessionsBySpeakers')
     def getSessionsBySpeakers(self, request):
@@ -881,7 +898,7 @@ class ConferenceApi(remote.Service):
         Given a speaker, return all sessions given by this particular
         speaker, acroos all conferences.
         """
-        sessions = self._querySessions(request.filters)
+        sessions = Session.query(Session.speaker == request.speaker.lower())
         return SessionForms(sessions=[self._copySessionToForm(sess)\
                             for sess in sessions])
 
@@ -920,17 +937,23 @@ class ConferenceApi(remote.Service):
         """Get all sessions on user wishlist."""
         return self._getWishlist()
 
-    @endpoints.method(CONF_GET_REQUEST, SessionForms,
+    @endpoints.method(CONF_GET_REQUEST, FeatureSpeaker,
             path='conference/{websafeConferenceKey}/getFeatureSpeaker',
             http_method='GET', name='getFeatureSpeaker')
     def getFeatureSpeaker(self, request):
         """
-        Return all sessions that have the featured speaker for a conference.
+        Return the featrue speaker for a conference and all sessions the
+        feature speaker is in.
         """
-        key = ndb.Key(urlsafe=request.websafeConferenceKey)
-        featureSpeaker = Session.countspeakers(key)[0][0]  # get name is featured speaker
-        q = Session.query(ancestor=key).filter(Session.speaker == featureSpeaker)
-        return SessionForms(sessions=[self._copySessionToForm(sess)\
-                            for sess in q])
+        speakerMemKey = SPEAKER_ANNOUNCEMENTS_KEY + request.websafeConferenceKey
+        data = memcache.get(speakerMemKey)
+        if data is not None:
+            return FeatureSpeaker(
+                name= data['name'],
+                conf_name= data['conf_name'],
+                sessions= data['sessions']
+            )
+        else:
+            raise endpoints.NotFoundException('Not a valid Memcache id')
 
 api = endpoints.api_server([ConferenceApi])  # register API
